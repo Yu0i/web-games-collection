@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 工程学习站 · 从 Harness 到 Graph 的全景指南</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230a0e1a'/%3E%3Ctext x='16' y='22' font-size='17' text-anchor='middle' fill='%234f8cff' font-family='sans-serif'%3EA%3C/text%3E%3C/svg%3E">
+<style>
+/* ============ 设计系统 ============ */
+:root{
+  --bg:#0a0e1a;
+  --bg-soft:#0f1526;
+  --bg-card:#131b30;
+  --bg-card-hover:#18223d;
+  --line:rgba(120,160,255,.14);
+  --text:#e8edf7;
+  --text-dim:#9aa7c4;
+  --text-faint:#6b7896;
+  --accent:#4f8cff;
+  --accent-2:#22d3ee;
+  --accent-3:#a78bfa;
+  --warn:#fbbf24;
+  --ok:#34d399;
+  --danger:#f87171;
+  --radius:14px;
+  --radius-sm:8px;
+  --shadow:0 10px 40px rgba(0,0,0,.35);
+  --shadow-glow:0 0 0 1px rgba(79,140,255,.25), 0 14px 44px rgba(34,211,238,.08);
+  --font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --maxw:1180px;
+  --header-h:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:calc(var(--header-h) + 10px)}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font);
+  line-height:1.75;
+  font-size:16px;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent-2);text-decoration:none}
+a:hover{text-decoration:underline}
+::selection{background:rgba(79,140,255,.35)}
+
+/* 背景装饰 */
+.bg-grid{
+  position:fixed;inset:0;z-index:-2;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(79,140,255,.16), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 20%, rgba(167,139,250,.08), transparent 60%);
+}
+.bg-grid::before{
+  content:"";position:absolute;inset:0;
+  background-image:linear-gradient(rgba(120,160,255,.05) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(120,160,255,.05) 1px,transparent 1px);
+  background-size:44px 44px;
+  mask-image:linear-gradient(to bottom, rgba(0,0,0,.6), transparent 75%);
+}
+
+/* ============ 顶栏 ============ */
+header{
+  position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:100;
+  background:rgba(10,14,26,.82);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+}
+.nav{
+  max-width:var(--maxw);margin:0 auto;height:100%;
+  display:flex;align-items:center;gap:22px;padding:0 22px;
+}
+.logo{
+  font-weight:800;font-size:17px;letter-spacing:.5px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  white-space:nowrap;
+}
+.nav-links{display:flex;gap:4px;margin-left:auto}
+.nav-links a{
+  color:var(--text-dim);padding:7px 12px;border-radius:8px;
+  font-size:14px;transition:.18s;
+}
+.nav-links a:hover{color:var(--text);background:rgba(79,140,255,.12);text-decoration:none}
+.nav-links a.active{color:var(--text);background:rgba(79,140,255,.16)}
+.nav-burger{display:none;background:none;border:1px solid var(--line);color:var(--text);border-radius:8px;width:40px;height:40px;font-size:20px;cursor:pointer;margin-left:auto}
+.nav-burger:hover{border-color:var(--accent)}
+.read-progress{
+  position:fixed;top:0;left:0;height:3px;width:0;z-index:200;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent-3));
+  transition:width .1s linear;
+}
+
+/* ============ Hero ============ */
+.hero{
+  max-width:var(--maxw);margin:0 auto;
+  padding:calc(var(--header-h) + 76px) 22px 56px;
+  text-align:center;
+}
+.hero .kicker{
+  display:inline-block;font-size:13px;letter-spacing:2px;color:var(--accent-2);
+  border:1px solid rgba(34,211,238,.35);border-radius:999px;
+  padding:5px 16px;margin-bottom:22px;background:rgba(34,211,238,.06);
+}
+.hero h1{
+  font-size:clamp(30px,5.4vw,54px);line-height:1.22;font-weight:800;
+  margin-bottom:18px;letter-spacing:.5px;
+}
+.hero h1 .grad{
+  background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent-3));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.hero .sub{
+  font-size:clamp(15px,2vw,18px);color:var(--text-dim);
+  max-width:720px;margin:0 auto 30px;
+}
+.hero .formula{
+  display:inline-flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 26px;box-shadow:var(--shadow);
+  font-size:clamp(16px,2.4vw,22px);font-weight:700;
+}
+.hero .formula .op{color:var(--text-faint);font-weight:400}
+.hero .formula .m{color:var(--accent-2)}
+.hero .formula .h{color:var(--accent)}
+.hero .formula .eq{color:var(--accent-3)}
+.hero .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+.btn{
+  display:inline-block;padding:12px 26px;border-radius:10px;font-size:15px;font-weight:600;
+  transition:.2s;cursor:pointer;border:none;
+}
+.btn-primary{
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#04121f;
+  box-shadow:0 6px 24px rgba(79,140,255,.35);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(34,211,238,.4);text-decoration:none}
+.btn-ghost{
+  background:transparent;color:var(--text);border:1px solid var(--line);
+}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-2);transform:translateY(-2px);text-decoration:none}
+.hero .stats{
+  display:flex;gap:0;justify-content:center;margin-top:52px;flex-wrap:wrap;
+  border:1px solid var(--line);border-radius:var(--radius);
+  background:rgba(19,27,48,.6);overflow:hidden;
+}
+.hero .stat{flex:1;min-width:150px;padding:20px 14px;text-align:center}
+.hero .stat + .stat{border-left:1px solid var(--line)}
+.hero .stat b{display:block;font-size:clamp(20px,3vw,28px);background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .stat span{font-size:13px;color:var(--text-dim)}
+
+/* ============ 通用区块 ============ */
+main{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+section{margin:0 0 96px}
+.sec-head{text-align:center;margin-bottom:44px}
+.sec-head .tag{
+  font-size:12px;letter-spacing:2px;color:var(--accent-3);
+  text-transform:uppercase;margin-bottom:8px;
+}
+.sec-head h2{font-size:clamp(24px,3.6vw,36px);font-weight:800;margin-bottom:12px}
+.sec-head p{color:var(--text-dim);max-width:640px;margin:0 auto;font-size:15px}
+
+.card{
+  background:var(--bg-card);border:1px solid var(--line);
+  border-radius:var(--radius);padding:22px;
+}
+.card h3{font-size:17px;margin-bottom:10px}
+.card p{color:var(--text-dim);font-size:14.5px}
+
+/* ============ 基础架构四模块 ============ */
+.arch-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.arch-item{
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:20px;position:relative;overflow:hidden;transition:.22s;
+}
+.arch-item:hover{transform:translateY(-4px);border-color:rgba(79,140,255,.45);box-shadow:var(--shadow-glow)}
+.arch-item .icon{font-size:26px;margin-bottom:10px;display:block}
+.arch-item h3{font-size:15.5px;margin-bottom:6px}
+.arch-item p{font-size:13.5px;color:var(--text-dim);line-height:1.65}
+.arch-item .layer{
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+}
+
+/* ============ 概念库 ============ */
+.concept-toolbar{
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:22px;
+}
+.search-box{
+  flex:1;min-width:240px;position:relative;
+}
+.search-box input{
+  width:100%;padding:12px 16px 12px 42px;border-radius:10px;
+  background:var(--bg-card);border:1px solid var(--line);color:var(--text);
+  font-size:15px;outline:none;transition:.18s;
+}
+.search-box input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,140,255,.18)}
+.search-box .s-ico{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-faint);font-size:15px}
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  padding:7px 14px;border-radius:999px;font-size:13px;cursor:pointer;
+  border:1px solid var(--line);color:var(--text-dim);background:transparent;transition:.18s;
+}
+.chip:hover{color:var(--text);border-color:var(--accent)}
+.chip.on{background:rgba(79,140,255,.16);color:var(--text);border-color:var(--accent)}
+.concept-list{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.concept{
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;transition:.22s;
+}
+.concept:hover{border-color:rgba(79,140,255,.4);box-shadow:var(--shadow-glow)}
+.concept-head{
+  padding:20px 22px;cursor:pointer;display:flex;gap:14px;align-items:flex-start;
+  user-select:none;
+}
+.concept-head:hover{background:var(--bg-card-hover)}
+.concept-badge{
+  flex:none;width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:20px;background:rgba(79,140,255,.12);border:1px solid rgba(79,140,255,.25);
+}
+.concept-title{flex:1}
+.concept-title h3{font-size:16.5px;margin-bottom:3px;display:flex;align-items:center;gap:8px}
+.concept-title .tag-row{display:flex;gap:6px;flex-wrap:wrap}
+.mini-tag{font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(34,211,238,.1);color:var(--accent-2)}
+.mini-tag.purple{background:rgba(167,139,250,.12);color:var(--accent-3)}
+.mini-tag.green{background:rgba(52,211,153,.12);color:var(--ok)}
+.mini-tag.yellow{background:rgba(251,191,36,.12);color:var(--warn)}
+.concept-title .desc{font-size:13px;color:var(--text-dim);margin-top:4px}
+.concept-arrow{color:var(--text-faint);font-size:13px;margin-top:6px;transition:.2s}
+.concept.open .concept-arrow{transform:rotate(180deg)}
+.concept-body{
+  display:none;padding:0 22px 22px;border-top:1px dashed var(--line);
+  font-size:14px;color:var(--text-dim);
+}
+.concept.open .concept-body{display:block;padding-top:16px}
+.concept-body h4{color:var(--text);font-size:14px;margin:14px 0 6px}
+.concept-body ul{padding-left:20px;margin:6px 0}
+.concept-body li{margin-bottom:6px}
+.concept-body .hl{color:var(--text)}
+.concept-body code{
+  background:rgba(79,140,255,.1);color:var(--accent-2);padding:1px 7px;
+  border-radius:5px;font-size:13px;font-family:"Cascadia Code",Consolas,monospace;
+}
+.concept-body .callout{
+  background:rgba(251,191,36,.07);border-left:3px solid var(--warn);
+  padding:10px 14px;border-radius:6px;margin:10px 0;font-size:13.5px;
+}
+.concept-body .callout.blue{background:rgba(79,140,255,.07);border-left-color:var(--accent)}
+.concept-body .callout.green{background:rgba(52,211,153,.07);border-left-color:var(--ok)}
+.concept-body table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+.concept-body th,.concept-body td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+.concept-body th{background:rgba(79,140,255,.08);color:var(--text)}
+.empty-tip{grid-column:1/-1;text-align:center;color:var(--text-faint);padding:40px 0;display:none}
+
+/* ============ 时间线 ============ */
+.timeline{position:relative;margin:0 auto;max-width:860px;padding-left:0}
+.timeline::before{
+  content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);
+  background:linear-gradient(to bottom,transparent,var(--accent) 8%,var(--accent) 92%,transparent);
+}
+.tl-item{position:relative;width:50%;padding:0 34px 38px}
+.tl-item:nth-child(odd){left:0;text-align:right}
+.tl-item:nth-child(even){left:50%;text-align:left}
+.tl-dot{
+  position:absolute;top:6px;width:16px;height:16px;border-radius:50%;
+  background:var(--bg);border:3px solid var(--accent);z-index:1;
+}
+.tl-item:nth-child(odd) .tl-dot{right:-8px}
+.tl-item:nth-child(even) .tl-dot{left:-8px}
+.tl-year{
+  display:inline-block;font-size:12px;font-weight:700;letter-spacing:1px;
+  color:var(--accent-2);background:rgba(34,211,238,.1);
+  padding:3px 12px;border-radius:999px;margin-bottom:8px;
+}
+.tl-item h3{font-size:16px;margin-bottom:6px}
+.tl-item p{font-size:13.5px;color:var(--text-dim)}
+
+/* ============ 三层关系 ============ */
+.nest{display:flex;justify-content:center;margin-top:10px}
+.nest-box{
+  width:min(720px,94%);border-radius:22px;padding:26px;
+  border:1.5px solid var(--accent-3);
+  background:rgba(167,139,250,.06);
+}
+.nest-box .nest-tag{font-size:12px;letter-spacing:2px;color:var(--accent-3);text-align:center;margin-bottom:14px}
+.nest-inner{
+  border-radius:16px;padding:22px;border:1.5px solid var(--accent-2);
+  background:rgba(34,211,238,.05);
+}
+.nest-inner .nest-tag{color:var(--accent-2)}
+.nest-core{
+  border-radius:12px;padding:16px 20px;border:1.5px solid var(--accent);
+  background:rgba(79,140,255,.07);text-align:center;
+}
+.nest-core b{display:block;font-size:16px;margin-bottom:4px}
+.nest-core span{font-size:13px;color:var(--text-dim)}
+.nest-desc{max-width:720px;margin:26px auto 0;text-align:center;color:var(--text-dim);font-size:14.5px}
+.nest-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:34px}
+.nest-card{background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;text-align:center;transition:.2s}
+.nest-card:hover{transform:translateY(-4px);border-color:rgba(79,140,255,.45)}
+.nest-card .n-icon{font-size:28px;margin-bottom:10px;display:block}
+.nest-card h3{font-size:15.5px;margin-bottom:8px}
+.nest-card p{font-size:13px;color:var(--text-dim)}
+
+/* ============ 学习路线 ============ */
+.roadmap{display:flex;flex-direction:column;gap:20px;max-width:900px;margin:0 auto}
+.rm-step{
+  display:grid;grid-template-columns:110px 1fr;gap:20px;
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px;transition:.22s;position:relative;overflow:hidden;
+}
+.rm-step::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent)}
+.rm-step.l1::before{background:var(--accent-2)}
+.rm-step.l2::before{background:var(--accent-3)}
+.rm-step.l3::before{background:var(--warn)}
+.rm-step:hover{border-color:rgba(79,140,255,.4);box-shadow:var(--shadow-glow)}
+.rm-lv{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.rm-lv .lv-badge{
+  width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;
+  font-size:26px;background:rgba(79,140,255,.12);border:1px solid rgba(79,140,255,.3);
+}
+.rm-step.l1 .lv-badge{background:rgba(34,211,238,.1);border-color:rgba(34,211,238,.3)}
+.rm-step.l2 .lv-badge{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3)}
+.rm-step.l3 .lv-badge{background:rgba(251,191,36,.12);border-color:rgba(251,191,36,.3)}
+.rm-lv b{font-size:15px}
+.rm-lv span{font-size:12px;color:var(--text-faint)}
+.rm-body h3{font-size:17px;margin-bottom:4px}
+.rm-body .rm-who{font-size:12.5px;color:var(--text-faint);margin-bottom:10px}
+.rm-body ul{padding-left:20px;margin-bottom:8px}
+.rm-body li{font-size:14px;color:var(--text-dim);margin-bottom:5px}
+.rm-check{
+  margin-top:12px;background:rgba(52,211,153,.07);border-left:3px solid var(--ok);
+  padding:10px 14px;border-radius:6px;font-size:13.5px;color:var(--text-dim);
+}
+.rm-check b{color:var(--ok);font-weight:600}
+
+.role-table-wrap{overflow-x:auto;margin-top:36px;border-radius:var(--radius);border:1px solid var(--line)}
+table.role{width:100%;border-collapse:collapse;min-width:720px;font-size:14px;background:var(--bg-card)}
+table.role th,table.role td{padding:14px 16px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.role th{background:rgba(79,140,255,.09);color:var(--text);font-weight:600;white-space:nowrap}
+table.role tr:last-child td{border-bottom:none}
+table.role td:first-child{font-weight:700;color:var(--accent-2);white-space:nowrap}
+table.role td{color:var(--text-dim)}
+
+/* ============ 工具生态 ============ */
+.eco-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.eco-card{
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px;display:flex;gap:16px;transition:.2s;align-items:flex-start;
+}
+.eco-card:hover{border-color:rgba(79,140,255,.45);transform:translateY(-3px);box-shadow:var(--shadow-glow)}
+.eco-card .e-ico{
+  flex:none;width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;background:rgba(79,140,255,.1);border:1px solid rgba(79,140,255,.22);
+}
+.eco-card h3{font-size:15.5px;margin-bottom:4px}
+.eco-card .e-tag{font-size:11.5px;color:var(--accent-3);margin-bottom:6px;display:block}
+.eco-card p{font-size:13.5px;color:var(--text-dim)}
+
+/* ============ 学习资源 ============ */
+.res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.res-card{
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px;transition:.2s;display:flex;flex-direction:column;gap:8px;
+}
+.res-card:hover{border-color:rgba(34,211,238,.5);transform:translateY(-4px);box-shadow:var(--shadow-glow)}
+.res-card .r-ico{font-size:24px}
+.res-card h3{font-size:15.5px}
+.res-card p{font-size:13.5px;color:var(--text-dim);flex:1}
+.res-card .r-link{font-size:13px;color:var(--accent-2);word-break:break-all}
+
+/* ============ FAQ ============ */
+.faq-list{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.faq{
+  background:var(--bg-card);border:1px solid var(--line);border-radius:var(--radius);
+  overflow:hidden;
+}
+.faq-q{
+  padding:18px 22px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+  font-size:15px;font-weight:600;gap:14px;user-select:none;transition:.18s;
+}
+.faq-q:hover{background:var(--bg-card-hover)}
+.faq-q .fa{flex:none;color:var(--accent-2);transition:.25s;font-size:14px}
+.faq.open .fa{transform:rotate(180deg)}
+.faq-a{display:none;padding:0 22px 20px;color:var(--text-dim);font-size:14px;border-top:1px dashed var(--line)}
+.faq.open .faq-a{display:block;padding-top:14px}
+
+/* ============ 页脚 ============ */
+footer{
+  border-top:1px solid var(--line);margin-top:40px;
+  padding:36px 22px;text-align:center;color:var(--text-faint);font-size:13px;
+}
+footer .ft-line{margin-bottom:6px}
+
+/* ============ 返回顶部 ============ */
+#backTop{
+  position:fixed;right:26px;bottom:30px;width:46px;height:46px;border-radius:12px;
+  background:var(--bg-card);border:1px solid var(--line);color:var(--text);
+  font-size:18px;cursor:pointer;display:none;z-index:90;transition:.2s;
+}
+#backTop:hover{border-color:var(--accent);color:var(--accent-2);transform:translateY(-3px)}
+
+/* ============ 响应式 ============ */
+@media (max-width:900px){
+  .nav-links{
+    display:none;position:absolute;top:var(--header-h);left:0;right:0;
+    background:rgba(10,14,26,.97);flex-direction:column;padding:12px;gap:2px;
+    border-bottom:1px solid var(--line);
+  }
+  .nav-links.open{display:flex}
+  .nav-burger{display:block}
+  .arch-grid{grid-template-columns:repeat(2,1fr)}
+  .concept-list{grid-template-columns:1fr}
+  .nest-cards{grid-template-columns:1fr}
+  .eco-grid{grid-template-columns:1fr}
+  .res-grid{grid-template-columns:1fr}
+  .timeline::before{left:10px}
+  .tl-item,.tl-item:nth-child(odd),.tl-item:nth-child(even){width:100%;left:0;text-align:left;padding:0 0 34px 40px}
+  .tl-item .tl-dot,.tl-item:nth-child(odd) .tl-dot,.tl-item:nth-child(even) .tl-dot{left:3px;right:auto}
+  .rm-step{grid-template-columns:1fr;gap:14px}
+  .rm-lv{flex-direction:row;justify-content:flex-start;gap:14px}
+}
+@media (max-width:600px){
+  .arch-grid{grid-template-columns:1fr}
+  .hero{padding-top:calc(var(--header-h) + 44px)}
+  .hero .stats{flex-direction:column}
+  .hero .stat + .stat{border-left:none;border-top:1px solid var(--line)}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="read-progress" id="readProgress"></div>
+
+<header>
+  <nav class="nav">
+    <span class="logo">Agent 工程学习站</span>
+    <div class="nav-links" id="navLinks">
+      <a href="#concepts">核心概念</a>
+      <a href="#timeline">演进时间线</a>
+      <a href="#nest">三层关系</a>
+      <a href="#roadmap">学习路线</a>
+      <a href="#ecosystem">工具生态</a>
+      <a href="#resources">学习资源</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <button class="nav-burger" id="navBurger" aria-label="菜单">☰</button>
+  </nav>
+</header>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <span class="kicker">AI ENGINEERING · 2026 全景指南</span>
+  <h1>从「把提示词问好」到<span class="grad">「把系统设计好」</span><br>Agent 工程学习站</h1>
+  <p class="sub">系统理解 Harness Engineering、Loop Engineering、Graph Engineering 三大前沿范式，以及一条从零开始的智能体学习路线。</p>
+  <div class="formula">
+    <span class="m">Model</span>
+    <span class="op">（模型）</span>
+    <span class="op">+</span>
+    <span class="h">Harness</span>
+    <span class="op">（驾驭系统）</span>
+    <span class="op">=</span>
+    <span class="eq">Agent</span>
+    <span class="op">（智能体）</span>
+  </div>
+  <div class="cta">
+    <a class="btn btn-primary" href="#concepts">开始学习</a>
+    <a class="btn btn-ghost" href="#roadmap">查看学习路线</a>
+  </div>
+  <div class="stats">
+    <div class="stat"><b>2026</b><span>智能体元年，工程重心转移</span></div>
+    <div class="stat"><b>2022</b><span>ReAct 提出「思考-行动-观察」循环</span></div>
+    <div class="stat"><b>2026.02</b><span>Harness Engineering 概念诞生</span></div>
+    <div class="stat"><b>2026.07</b><span>Graph Engineering 走红</span></div>
+  </div>
+</section>
+
+<main>
+
+<!-- ============ 基础架构 ============ -->
+<section id="base">
+  <div class="sec-head">
+    <div class="tag">Foundation</div>
+    <h2>先理解：智能体由什么构成</h2>
+    <p>智能体（Agent）是能「感知环境、自主决策、执行行动」的程序。它是大模型的「大脑 + 手脚 + 记忆 + 工具」。</p>
+  </div>
+  <div class="arch-grid">
+    <div class="arch-item">
+      <span class="icon">👁️</span>
+      <span class="layer"></span>
+      <h3>感知层 Perception</h3>
+      <p>通过多模态接口获取信息：视觉识别图像缺陷、语音理解情绪、API 读取金融行情与传感器数据。</p>
+    </div>
+    <div class="arch-item">
+      <span class="icon">🧠</span>
+      <span class="layer"></span>
+      <h3>规划层 Planning</h3>
+      <p>灵魂所在。把「写一篇深度报告并发布」拆成大纲、查资料、撰写、格式化等子任务，再逐项执行。</p>
+    </div>
+    <div class="arch-item">
+      <span class="icon">🗂️</span>
+      <span class="layer"></span>
+      <h3>记忆层 Memory</h3>
+      <p>短期记忆是上下文窗口；长期记忆通过 RAG 与向量数据库沉淀行业知识，解决模型知识更新慢的问题。</p>
+    </div>
+    <div class="arch-item">
+      <span class="icon">🛠️</span>
+      <span class="layer"></span>
+      <h3>工具层 Tools</h3>
+      <p>调用 API、执行代码、操作浏览器。让智能体从「只会说」变成「能干活」，真正影响现实世界。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 核心概念 ============ -->
+<section id="concepts">
+  <div class="sec-head">
+    <div class="tag">Concepts</div>
+    <h2>核心概念库</h2>
+    <p>覆盖从提示词工程到图工程的完整概念谱系。点击卡片展开详情，可用搜索框或分类标签快速筛选。</p>
+  </div>
+  <div class="concept-toolbar">
+    <div class="search-box">
+      <span class="s-ico">🔍</span>
+      <input type="text" id="searchInput" placeholder="搜索概念或关键词，如：Harness、验证器、RAG…" aria-label="搜索概念">
+    </div>
+    <div class="filter-chips" id="filterChips">
+      <button class="chip on" data-f="all">全部</button>
+      <button class="chip" data-f="基础">基础</button>
+      <button class="chip" data-f="范式">工程范式</button>
+      <button class="chip" data-f="组件">关键组件</button>
+    </div>
+  </div>
+  <div class="concept-list" id="conceptList">
+
+    <!-- 概念 1 -->
+    <div class="concept" data-tags="基础">
+      <div class="concept-head">
+        <div class="concept-badge">💬</div>
+        <div class="concept-title">
+          <h3>Prompt Engineering <span class="mini-tag">基础</span></h3>
+          <span class="desc">提示词工程 · 最底层的「问话艺术」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>通过精心设计输入给大模型的指令，让模型更稳定地产出期望结果。这是 Agent 时代的起点，也是所有人最先接触的一层。</p>
+        <h4>关键方法</h4>
+        <ul>
+          <li><span class="hl">结构化提示</span>：用 CO-STAR 等框架组织角色、目标、风格、受众等要素</li>
+          <li><span class="hl">Few-shot 示例</span>：在提示中给出输入-输出样例，引导模型模仿</li>
+          <li><span class="hl">思维链（Chain-of-Thought）</span>：要求模型先推理再作答，提升复杂问题正确率</li>
+        </ul>
+        <div class="callout blue">它的局限：<b>只优化「一句话」</b>。当任务变复杂，单靠提示词无法让模型稳定地查资料、跑代码、自我纠错——这正是上层工程范式出现的原因。</div>
+      </div>
+    </div>
+
+    <!-- 概念 2 -->
+    <div class="concept" data-tags="基础">
+      <div class="concept-head">
+        <div class="concept-badge">🧩</div>
+        <div class="concept-title">
+          <h3>Context Engineering <span class="mini-tag">基础</span></h3>
+          <span class="desc">上下文工程 · 决定模型「看到什么」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>管理「喂给模型的上下文」的工程：哪些信息进、哪些不进、以什么顺序与格式组织，直接决定模型回答质量。上下文是 Agent 的「工作台」，放什么决定它能干成什么。</p>
+        <h4>核心手段</h4>
+        <ul>
+          <li><span class="hl">上下文窗口管理</span>：长期任务中裁剪、摘要、压缩历史，防止目标被淹没</li>
+          <li><span class="hl">RAG 注入</span>：检索相关知识后拼入上下文（见 RAG 概念）</li>
+          <li><span class="hl">分层提示词</span>：身份、工具定义、安全策略等固定内容与任务动态内容分层组织</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 概念 3 -->
+    <div class="concept" data-tags="基础">
+      <div class="concept-head">
+        <div class="concept-badge">🔄</div>
+        <div class="concept-title">
+          <h3>Agent Loop（ReAct）<span class="mini-tag">基础</span></h3>
+          <span class="desc">智能体循环 · Agent 的「心跳」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>2022 年提出的 <code>ReAct</code>（Reason + Act）框架，让模型进入「想一步、做一步、看结果」的循环，是所有智能体的最小工作单元：</p>
+        <ul>
+          <li><span class="hl">思考 Thought</span>：分析当前情况，决定下一步</li>
+          <li><span class="hl">行动 Action</span>：调用工具——查资料、跑代码、搜网页</li>
+          <li><span class="hl">观察 Observation</span>：看工具返回结果，回到思考</li>
+        </ul>
+        <div class="callout">类比：像一名实习生，老板给目标，他自己琢磨、动手、看反馈，错了再改直到交差。灵活，但出问题不好追溯、中途崩溃难以续跑。</div>
+      </div>
+    </div>
+
+    <!-- 概念 4：Harness -->
+    <div class="concept" data-tags="范式">
+      <div class="concept-head">
+        <div class="concept-badge">🐎</div>
+        <div class="concept-title">
+          <h3>Harness Engineering <span class="mini-tag purple">工程范式</span><span class="mini-tag yellow">重点</span></h3>
+          <span class="desc">驾驭工程 · Agent 的「操作系统」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p><span class="hl">Harness 直译为「马具、缰绳」</span>。大模型是匹千里马，Harness 是驾驭它的全套装备。核心公式：<code>Agent = Model + Harness</code>——模型决定「多聪明」，Harness 决定「能不能稳定把活干完」。</p>
+        <h4>起源与走红</h4>
+        <ul>
+          <li><span class="hl">2026 年 2 月</span>：HashiCorp 联合创始人 Mitchell Hashimoto 在个人博客首次提出 harness engineering，指「每当发现 AI 智能体犯错，就设计解决方案防止再犯」</li>
+          <li><span class="hl">2026 年 2 月</span>：OpenAI 发文跟进推广</li>
+          <li><span class="hl">2026 年 8 月</span>：DeepSeek 开源 DeepSeek Harness，国内多家厂商接入，概念彻底出圈</li>
+        </ul>
+        <h4>Harness 包含什么</h4>
+        <ul>
+          <li>系统提示词与工具说明（决定模型行为边界）</li>
+          <li>记忆与状态管理（让 Agent 拥有长期记忆）</li>
+          <li>任务拆分与重试机制（长任务可靠执行）</li>
+          <li>权限控制、审计追踪与评测体系（企业级治理）</li>
+        </ul>
+        <h4>参考：Claude Code 的六大核心组件</h4>
+        <p>Anthropic 的 Claude Code 源码（约 51 万行）泄露后，业界分析出其 Harness 六大组件：</p>
+        <table>
+          <tr><th>组件</th><th>作用</th></tr>
+          <tr><td>多层级 System Prompt</td><td>身份、工具、安全策略，可达十几万 token</td></tr>
+          <tr><td>Tool Schema（工具规范）</td><td>工具定义直接决定调用准确率</td></tr>
+          <tr><td>Tool Call Loop</td><td>先规划后执行，降低长链路中间错误</td></tr>
+          <tr><td>Context Manager</td><td>指针式记忆，解决百万 token 上下文利用</td></tr>
+          <tr><td>Sub Agent（子智能体）</td><td>共享 KV Cache，成本远低于串行执行</td></tr>
+          <tr><td>Verification Hooks</td><td>防止模型「自我美化、虚报完成」</td></tr>
+        </table>
+        <h4>Harness vs Framework</h4>
+        <ul>
+          <li><span class="hl">Framework（框架）</span>解决「如何开发一个 Agent」——像招聘手册</li>
+          <li><span class="hl">Harness</span>解决「如何让一个 Agent 长期可靠地运行」——像企业管理系统</li>
+        </ul>
+        <div class="callout green"><b>动手起点</b>：最小可用的 Harness 只需约 200 行——在项目根目录写一个 <code>AGENTS.md</code>，定义「项目说明、禁止操作、完成定义」，Agent 启动时自动读取。OpenAI 团队曾用不到 100 行的 AGENTS.md 让 Codex 稳定写出超 100 万行代码。</div>
+      </div>
+    </div>
+
+    <!-- 概念 5：Loop -->
+    <div class="concept" data-tags="范式">
+      <div class="concept-head">
+        <div class="concept-badge">🛰️</div>
+        <div class="concept-title">
+          <h3>Loop Engineering <span class="mini-tag purple">工程范式</span></h3>
+          <span class="desc">循环工程 · 给 Agent 装「自动巡航」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>2026 年上半年走红的概念。核心思想（Google 前工程师 Addy Osmani）：<span class="hl">「不再由你亲自提示 AI，而是设计一个系统让系统代替你提示 AI」</span>。人从「操作员」变成「定目标和验收标准的人」。</p>
+        <h4>LangChain 总结的循环四层级</h4>
+        <table>
+          <tr><th>层级</th><th>含义</th></tr>
+          <tr><td>基础循环</td><td>模型循环调用工具直到完成</td></tr>
+          <tr><td>验证循环</td><td>输出不达标就带反馈重试</td></tr>
+          <tr><td>事件驱动循环</td><td>由定时任务或消息触发自动运行</td></tr>
+          <tr><td>爬山循环</td><td>分析运行记录，自动改进提示词与工具配置</td></tr>
+        </table>
+        <div class="callout">局限：一个循环里所有事情挤在一起，上下文容易「腐烂」；出错时常常要整段重来。这正是 Graph Engineering 要解决的问题。</div>
+      </div>
+    </div>
+
+    <!-- 概念 6：Graph -->
+    <div class="concept" data-tags="范式">
+      <div class="concept-head">
+        <div class="concept-badge">🕸️</div>
+        <div class="concept-title">
+          <h3>Graph Engineering <span class="mini-tag purple">工程范式</span><span class="mini-tag yellow">重点</span></h3>
+          <span class="desc">图工程 · 从「单兵作战」到「开公司」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>2026 年 7 月被推到台前的范式：<span class="hl">把 AI 系统画成一张「执行图」来设计和运行</span>——把多个智能体、普通代码、验证器、人工审批组织成一张「看得见、管得住、坏了能修」的图。它不是给人看的示意图，而是给机器跑的真实系统。</p>
+        <h4>四个基本要素：G = (V, E, S, P)</h4>
+        <table>
+          <tr><th>要素</th><th>含义</th></tr>
+          <tr><td>节点 V</td><td>干活的单元：代码、模型调用、带工具的智能体、验证器、人工审批</td></tr>
+          <tr><td>边 E</td><td>路由：顺序、条件分支、并行分发、结果汇合、循环重试</td></tr>
+          <tr><td>状态 S</td><td>沿边流动的共享数据：进度、证据、预算、中间产物、检查点</td></tr>
+          <tr><td>策略 P</td><td>权限规则：谁能建节点、调工具、改图、产生副作用</td></tr>
+        </table>
+        <h4>它解决单 Agent 循环的六大硬伤</h4>
+        <table>
+          <tr><th>问题</th><th>图的解法</th></tr>
+          <tr><td>上下文腐烂</td><td>拆成独立节点，隔离上下文</td></tr>
+          <tr><td>错误级联</td><td>拆出独立验证节点专门挑错</td></tr>
+          <tr><td>工具过载</td><td>按职责分工，每个节点管好自己的工具</td></tr>
+          <tr><td>缺乏控制粒度</td><td>通过节点和边灵活控制，随时插队</td></tr>
+          <tr><td>可观测性差</td><td>图结构清晰，每条路径都可追溯</td></tr>
+          <tr><td>目标失明</td><td>「判断」与「验证」分离</td></tr>
+        </table>
+        <h4>核心武器：验证器（Verifier）</h4>
+        <p>把「出结论」和「检查结论」拆成两个节点：一个智能体产出结论，另一个用全新上下文专门试图推翻它。扛得住才放行，扛不住打回重做——避免「既当运动员又当裁判」。</p>
+        <h4>两个常见误解</h4>
+        <ul>
+          <li><span class="hl">图工程 ≠ 知识图谱</span>：知识图谱描述「实体之间的关系」（GraphRAG 那种）；图工程是<b>控制图</b>，描述「系统下一步运行谁」</li>
+          <li><span class="hl">图工程 ≠ LangGraph</span>：LangGraph 只是实现图工程的一个流行框架，普通 Python、Airflow 等同样可以实现</li>
+        </ul>
+        <div class="callout blue"><b>适用判断</b>：任务短、路径固定、单目标、停止条件明确 → 别画图；任务长、要并行、要质检、要审批、要恢复 → 才值得把流程画成图。LangChain 官方也指出：过度画图会压缩智能体的探索空间。</div>
+      </div>
+    </div>
+
+    <!-- 概念 7：RAG -->
+    <div class="concept" data-tags="组件">
+      <div class="concept-head">
+        <div class="concept-badge">📚</div>
+        <div class="concept-title">
+          <h3>RAG 检索增强生成 <span class="mini-tag green">关键组件</span></h3>
+          <span class="desc">给 AI 戴上的「行业参考书」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>Retrieval-Augmented Generation：先生成问题的向量表示，从<b>向量数据库</b>检索相关知识片段，与用户问题拼在一起再交给模型生成答案。解决大模型知识更新慢、易幻觉的问题。</p>
+        <h4>核心环节</h4>
+        <ul>
+          <li><span class="hl">文档切分与向量化</span>：把知识库切成块，用 Embedding 模型转成向量</li>
+          <li><span class="hl">向量检索</span>：用向量数据库（Chroma / Pinecone / Milvus 等）做相似度召回</li>
+          <li><span class="hl">生成</span>：检索结果 + 问题 → 大模型 → 带来源的答案</li>
+        </ul>
+        <div class="callout green">进阶玩法 <b>GraphRAG</b>：用知识图谱组织实体关系后再检索，能回答「关于整个语料库」的全局性问题，而非单一片段。</div>
+      </div>
+    </div>
+
+    <!-- 概念 8：Multi-Agent -->
+    <div class="concept" data-tags="范式">
+      <div class="concept-head">
+        <div class="concept-badge">🤝</div>
+        <div class="concept-title">
+          <h3>Multi-Agent 多智能体协作 <span class="mini-tag purple">工程范式</span></h3>
+          <span class="desc">从单智能体到「群体智能」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>让多个专业化的智能体分工协作：程序员 Agent 写代码、测试员 Agent 找 Bug，互相配合完成任务。常见模式：<span class="hl">主管-工人</span>（主智能体规划、子智能体并行执行）、<span class="hl">流水线</span>（角色按顺序接力）、<span class="hl">辩论/对抗</span>（多角色互相质疑）。</p>
+        <h4>典型效果</h4>
+        <ul>
+          <li>Anthropic 多智能体研究系统采用「主管-工人」模式，比单智能体方案性能提升约 90%（第三方评测数据）</li>
+          <li>Uber 用子图给不同语言、不同仓库分配专门子智能体，配合检查点扛住 CI 中断，节省超 2 万工程小时</li>
+        </ul>
+        <div class="callout">关键挑战：智能体之间的<b>通信协议、任务分配、冲突消解、结果聚合与治理</b>——这正是 Graph Engineering 的组织维度。</div>
+      </div>
+    </div>
+
+    <!-- 概念 9：MCP -->
+    <div class="concept" data-tags="组件">
+      <div class="concept-head">
+        <div class="concept-badge">🔌</div>
+        <div class="concept-title">
+          <h3>MCP 与工具调用 <span class="mini-tag green">关键组件</span></h3>
+          <span class="desc">智能体的「手脚插槽」</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>工具调用（Tool Use / Function Calling）让模型能「动手」：读文件、执行命令、调 API、查数据库。<span class="hl">MCP（Model Context Protocol，模型上下文协议）</span>是 Anthropic 推动的开放标准，把工具、资源、提示统一成可插拔接口——像给 AI 装 USB 接口，一套协议接遍各种工具。</p>
+        <h4>为什么重要</h4>
+        <ul>
+          <li>工具定义的<span class="hl">质量直接决定调用准确率</span>（Harness 中 Tool Schema 的重要性）</li>
+          <li>避免「一个 AI 挂太多工具」导致的准确率暴跌——按职责分工（Graph 的解法）</li>
+          <li>OpenAI Agents SDK、DeepSeek Harness 等已把 memory、sandbox、文件系统、MCP 等纳入标准化 Harness</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 概念 10：评估 -->
+    <div class="concept" data-tags="组件">
+      <div class="concept-head">
+        <div class="concept-badge">📊</div>
+        <div class="concept-title">
+          <h3>Agent 评估与可观测性 <span class="mini-tag green">关键组件</span></h3>
+          <span class="desc">不评估，就不知道 Agent 靠不靠谱</span>
+        </div>
+        <span class="concept-arrow">▼</span>
+      </div>
+      <div class="concept-body">
+        <p>生产级 Agent 必须回答：完成率多少？在非预期输入下健壮吗？每一步为什么这么走？</p>
+        <h4>评估维度</h4>
+        <ul>
+          <li><span class="hl">任务完成率</span>：端到端是否交付正确结果</li>
+          <li><span class="hl">基准评测</span>：如 Terminal Bench 等真实任务基准（Harness 优化曾把同一模型的得分从 52.8% 提到 66.5%，模型未变、只改工程）</li>
+          <li><span class="hl">可观测性</span>：图结构下每条路径可追溯；验证钩子防止「虚报完成」</li>
+          <li><span class="hl">成本与延迟</span>：好的 Harness 可把单次任务成本降低约一个数量级</li>
+        </ul>
+        <div class="callout blue">评估是 Agent 工程的「仪表盘」：没有评测体系，Harness 优化就是盲人摸象。</div>
+      </div>
+    </div>
+
+    <div class="empty-tip" id="emptyTip">没有匹配的概念，换个关键词试试。</div>
+  </div>
+</section>
+
+<!-- ============ 时间线 ============ -->
+<section id="timeline">
+  <div class="sec-head">
+    <div class="tag">Timeline</div>
+    <h2>工程范式演进时间线</h2>
+    <p>Agent 工程的重心，正从「怎么把一句话问好」转移到「怎么把一套系统设计好」。</p>
+  </div>
+  <div class="timeline">
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2022</span>
+      <h3>ReAct 提出</h3>
+      <p>「思考-行动-观察」循环诞生，Agent Loop 成为智能体的心跳。</p>
+    </div>
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2024</span>
+      <h3>LangGraph 发布</h3>
+      <p>LangChain 团队推出图编排框架，Graph 思想有了第一个流行载体。</p>
+    </div>
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2026.02</span>
+      <h3>Harness Engineering 诞生</h3>
+      <p>Mitchell Hashimoto 提出概念，OpenAI 跟进，Agent = Model + Harness 开始流行。</p>
+    </div>
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2026 上半年</span>
+      <h3>Loop Engineering 走红</h3>
+      <p>从「人提示 AI」转向「设计循环驱动 AI」，自动巡航范式流行。</p>
+    </div>
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2026.07</span>
+      <h3>Graph Engineering 出圈</h3>
+      <p>Peter Steinberger 推文引爆讨论，执行图成为多智能体组织的新范式。</p>
+    </div>
+    <div class="tl-item">
+      <span class="tl-dot"></span>
+      <span class="tl-year">2026.08</span>
+      <h3>Harness 开源潮</h3>
+      <p>DeepSeek Harness、OpenAI Codex Harness 相继开源，Agent 基础设施进入「抢位」阶段。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 三层关系 ============ -->
+<section id="nest">
+  <div class="sec-head">
+    <div class="tag">Relations</div>
+    <h2>三个范式的层级关系</h2>
+    <p>不是「谁取代谁」，而是一层套一层——Graph 里每个节点藏着 Loop，Loop 里跑着最基本的 Agent 循环。</p>
+  </div>
+  <div class="nest">
+    <div class="nest-box">
+      <div class="nest-tag">GRAPH ENGINEERING · 图工程 = 开一家公司</div>
+      <div class="nest-inner">
+        <div class="nest-tag">LOOP ENGINEERING · 循环工程 = 自动巡航</div>
+        <div class="nest-core">
+          <b>Agent Loop · 智能体循环 = 一个员工「想-做-看」</b>
+          <span>思考 → 行动 → 观察 → 再思考…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="nest-desc">一句话记住：<b>Agent 循环是「动作」，Loop 工程是「让动作自动循环的系统」，Graph 工程是「把多个循环和节点组织成一张图」</b>。LangChain 官方也直言：循环就是图的一种简单形式（有向循环图）。</p>
+  <div class="nest-cards">
+    <div class="nest-card">
+      <span class="n-icon">🫀</span>
+      <h3>Agent Loop</h3>
+      <p>最小工作单元：想一步、做一步、看结果，循环到任务完成。</p>
+    </div>
+    <div class="nest-card">
+      <span class="n-icon">🛰️</span>
+      <h3>Loop Engineering</h3>
+      <p>自动发现任务、拆分子任务、自动检查与汇报，人只定目标。</p>
+    </div>
+    <div class="nest-card">
+      <span class="n-icon">🏢</span>
+      <h3>Graph Engineering</h3>
+      <p>分工、交接、并行、卡点画成一张执行图，坏了能修、路径可追溯。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 学习路线 ============ -->
+<section id="roadmap">
+  <div class="sec-head">
+    <div class="tag">Roadmap</div>
+    <h2>学习路线：从 L0 到 L3</h2>
+    <p>一条兼顾「低代码上手」与「深度工程」的进阶路径。每层都有明确的必做项与验收标准。</p>
+  </div>
+  <div class="roadmap">
+    <div class="rm-step l0">
+      <div class="rm-lv">
+        <div class="lv-badge">🌱</div>
+        <b>L0 觉醒级</b>
+        <span>约 1–2 周</span>
+      </div>
+      <div class="rm-body">
+        <h3>建立正确认知</h3>
+        <div class="rm-who">适合：所有人 / 零基础小白</div>
+        <ul>
+          <li>理解「概率预测 ≠ 事实检索」：大模型会一本正经地胡说（幻觉）</li>
+          <li>了解智能体四大模块：感知、规划、记忆、工具</li>
+          <li>认识 Agent Loop：思考-行动-观察的最小循环</li>
+          <li>在低代码平台（扣子 Coze / Dify）搭建第一个智能体</li>
+        </ul>
+        <div class="rm-check"><b>验收标准</b>：能搭建一个日程规划助手——输入模糊文字，准确提取时间、事件并同步到日历。</div>
+      </div>
+    </div>
+
+    <div class="rm-step l1">
+      <div class="rm-lv">
+        <div class="lv-badge">🛠️</div>
+        <b>L1 工匠级</b>
+        <span>约 3–6 周</span>
+      </div>
+      <div class="rm-body">
+        <h3>给 AI「接上手脚」</h3>
+        <div class="rm-who">适合：开发者 / 想深入的技术爱好者</div>
+        <ul>
+          <li>掌握 Python 基础 + 调用大模型 API（OpenAI / DeepSeek / 通义等）</li>
+          <li>学会结构化提示词与函数调用（Function Calling）</li>
+          <li>用 API 串联两个不相关系统（如把知乎热榜自动转成文档）</li>
+          <li>入门 RAG：文档切分、向量化、检索、生成</li>
+        </ul>
+        <div class="rm-check"><b>验收标准</b>：你的工作流包含至少 3 个判断分支；能基于自有文档做问答。</div>
+      </div>
+    </div>
+
+    <div class="rm-step l2">
+      <div class="rm-lv">
+        <div class="lv-badge">🏗️</div>
+        <b>L2 架构级</b>
+        <span>约 2–3 个月</span>
+      </div>
+      <div class="rm-body">
+        <h3>解决「智商波动」与「胡言乱语」</h3>
+        <div class="rm-who">适合：后端工程师 / 架构师 / 准智能体工程师</div>
+        <ul>
+          <li>掌握向量数据库（Chroma / Pinecone / Milvus）与 RAG 优化</li>
+          <li>用 LangGraph / AutoGen 等框架实现多节点工作流</li>
+          <li>设计记忆与状态管理（短期 / 长期记忆、检查点）</li>
+          <li>理解 Loop Engineering：验证循环、事件驱动循环</li>
+          <li>搭建 Agent 评测：任务完成率、成本、可观测性</li>
+        </ul>
+        <div class="rm-check"><b>验收标准</b>：Agent 处理 10 万字文档时检索准确率稳定达标；长任务可中断续跑。</div>
+      </div>
+    </div>
+
+    <div class="rm-step l3">
+      <div class="rm-lv">
+        <div class="lv-badge">🚀</div>
+        <b>L3 专家级</b>
+        <span>持续进阶</span>
+      </div>
+      <div class="rm-body">
+        <h3>设计 Harness 与 Graph 系统</h3>
+        <div class="rm-who">适合：智能体架构师 / Harness 工程师 / 技术负责人</div>
+        <ul>
+          <li>为项目编写 AGENTS.md / CLAUDE.md，定义行为纲领与完成标准</li>
+          <li>设计多智能体图：节点、边、状态、策略（G = V, E, S, P）</li>
+          <li>实现独立验证器节点，把「判断」与「验证」分离</li>
+          <li>搭建权限控制、审计追踪、安全沙箱（企业级治理）</li>
+          <li>参与开源（DeepSeek Harness、OpenClaw、LangGraph 等）并沉淀方法论</li>
+        </ul>
+        <div class="rm-check"><b>验收标准</b>：你的 Agent 系统能端到端交付真实任务，出错可追溯、可恢复、成本可控。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="role-table-wrap">
+    <table class="role">
+      <tr>
+        <th>角色</th>
+        <th>入门（第 1–2 周）</th>
+        <th>进阶（第 3–6 周）</th>
+        <th>专家（第 3 个月起）</th>
+      </tr>
+      <tr>
+        <td>开发者</td>
+        <td>Python + 大模型 API + 工具调用</td>
+        <td>LangGraph 框架实现 RAG 知识库与工作流</td>
+        <td>构建多智能体系统（MAS）、Harness 工程实践</td>
+      </tr>
+      <tr>
+        <td>产品经理</td>
+        <td>熟练使用扣子 Coze / Dify</td>
+        <td>独立设计业务逻辑节点与状态机</td>
+        <td>推动 Agent 赋能业务，量化 ROI</td>
+      </tr>
+      <tr>
+        <td>业务人员</td>
+        <td>使用现成智能体工具提效</td>
+        <td>学习结构化 Prompt，优化输出</td>
+        <td>打造个人垂直领域「数字分身」</td>
+      </tr>
+      <tr>
+        <td>学生</td>
+        <td>学习大模型原理，参与开源</td>
+        <td>专业知识（如视觉、金融）与 Agent 结合</td>
+        <td>输出高质量技术复盘，建立个人影响力</td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 工具生态 ============ -->
+<section id="ecosystem">
+  <div class="sec-head">
+    <div class="tag">Ecosystem</div>
+    <h2>工具与平台生态</h2>
+    <p>从零代码到深度开发，按自己的水平与目标选择。</p>
+  </div>
+  <div class="eco-grid">
+    <div class="eco-card">
+      <div class="e-ico">🧱</div>
+      <div>
+        <span class="e-tag">低代码平台</span>
+        <h3>扣子 Coze</h3>
+        <p>字节跳动出品，生态丰富，插件多、免费算力多，一键发布到飞书 / 微信。适合 PM、运营与零代码初学者。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🐳</div>
+      <div>
+        <span class="e-tag">低代码 / 开源</span>
+        <h3>Dify</h3>
+        <p>开源、灵活、支持私有化部署，对 RAG 支持极好、UI 优雅。适合注重数据安全的开发者与初创企业。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🔗</div>
+      <div>
+        <span class="e-tag">框架 / 库</span>
+        <h3>LangChain / LangGraph</h3>
+        <p>行业标准框架，定制化程度最高；LangGraph 是图工程的流行载体。适合资深后端工程师深度控制。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🤖</div>
+      <div>
+        <span class="e-tag">框架 / 库</span>
+        <h3>AutoGen / CrewAI</h3>
+        <p>微软出品，主打多智能体对话协作；CrewAI 面向角色化团队编排。适合科研与复杂多角色系统。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🐎</div>
+      <div>
+        <span class="e-tag">Harness / Agent 产品</span>
+        <h3>DeepSeek Harness</h3>
+        <p>开源 Agent 执行框架（MIT），「一切皆插件」，对标 Claude Code。模型负责思考，Harness 负责行动。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">⌨️</div>
+      <div>
+        <span class="e-tag">Harness / Agent 产品</span>
+        <h3>Claude Code / OpenAI Codex</h3>
+        <p>头部编程智能体，其底层（多层级提示、工具循环、验证钩子、AGENTS.md）就是 Harness 工程的最佳范本。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🦞</div>
+      <div>
+        <span class="e-tag">Harness / 开源</span>
+        <h3>OpenClaw</h3>
+        <p>「龙虾」：开源全能 Agent，具备完善 Harness 能力（思考剥离、工具规范化、会话恢复等），支持多平台。</p>
+      </div>
+    </div>
+    <div class="eco-card">
+      <div class="e-ico">🗄️</div>
+      <div>
+        <span class="e-tag">基础设施</span>
+        <h3>向量数据库 + MCP + Sandbox</h3>
+        <p>长期记忆的存储底座（Chroma / Pinecone / Milvus）；MCP 统一工具接口；沙箱隔离高风险执行。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 学习资源 ============ -->
+<section id="resources">
+  <div class="sec-head">
+    <div class="tag">Resources</div>
+    <h2>推荐学习资源</h2>
+    <p>先看官方文档，再跟课程动手，最后扎进开源项目实践。</p>
+  </div>
+  <div class="res-grid">
+    <div class="res-card">
+      <span class="r-ico">📘</span>
+      <h3>LangChain / LangGraph 官方文档</h3>
+      <p>Agent 框架的事实标准。官方教程覆盖循环、图、记忆、工具等全部核心概念，配套概念讲解与代码示例。</p>
+      <a class="r-link" href="https://python.langchain.com/docs/introduction/" target="_blank" rel="noopener">python.langchain.com ↗</a>
+    </div>
+    <div class="res-card">
+      <span class="r-ico">🎓</span>
+      <h3>DeepLearning.AI 智能体课程</h3>
+      <p>吴恩达团队推出的 Agentic AI 系列课程，短平快，覆盖 ReAct、多智能体、Agentic Workflow 设计模式。</p>
+      <a class="r-link" href="https://www.deeplearning.ai/courses/" target="_blank" rel="noopener">deeplearning.ai ↗</a>
+    </div>
+    <div class="res-card">
+      <span class="r-ico">🐙</span>
+      <h3>DeepSeek Harness 开源仓库</h3>
+      <p>2026 年 8 月开源的 Agent 框架（MIT），「一切皆插件」设计。读源码是理解 Harness 工程最快的路径。</p>
+      <a class="r-link" href="https://github.com/deepseek-ai/DeepSeek-Harness" target="_blank" rel="noopener">github.com/deepseek-ai/DeepSeek-Harness ↗</a>
+    </div>
+    <div class="res-card">
+      <span class="r-ico">📄</span>
+      <h3>Anthropic / OpenAI 工程实践</h3>
+      <p>Anthropic 的 Building Effective Agents 与 OpenAI 的 Agents 文档，官方对 Agent 架构与 Harness 的最佳实践解读。</p>
+      <a class="r-link" href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">anthropic.com/engineering ↗</a>
+    </div>
+    <div class="res-card">
+      <span class="r-ico">📚</span>
+      <h3>Harness 六大支柱深度解读</h3>
+      <p>腾讯云开发者社区文章：Harness Engineering 六大支柱如何重塑 AI Agent 开发，中文深度资料，适合系统理解 Harness 的工程维度。</p>
+      <a class="r-link" href="https://cloud.tencent.com/developer/article/2660978" target="_blank" rel="noopener">cloud.tencent.com/developer/article/2660978 ↗</a>
+    </div>
+    <div class="res-card">
+      <span class="r-ico">🛠️</span>
+      <h3>项目实践清单</h3>
+      <p>按顺序做：日程助手（Coze）→ RAG 知识库问答 → 多工具工作流 → 多智能体协作 → 带验证器的图系统。</p>
+      <a class="r-link" href="#roadmap">回到学习路线 ↗</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="sec-head">
+    <div class="tag">FAQ</div>
+    <h2>常见问题</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq">
+      <div class="faq-q">学智能体必须学 Python 吗？<span class="fa">▼</span></div>
+      <div class="faq-a">分情况：只做业务应用，低代码平台（扣子 Coze、Dify）已经足够；想做深度定制、私有化部署或 Harness/Graph 工程，Python 仍是金钥匙——几乎所有主流框架都基于 Python。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">需要买昂贵的显卡吗？<span class="fa">▼</span></div>
+      <div class="faq-a">初期完全不需要。直接使用云端大模型 API 或厂商免费额度即可；本地部署（如 Ollama + Dify）可以后面再考虑。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">智能体和传统自动化（RPA）有什么区别？<span class="fa">▼</span></div>
+      <div class="faq-a">RPA 是死板的规则执行，流程写死；Agent 具备根据环境变化调整策略的能力，能处理非预期输入，更适合开放任务。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">为什么我的 Agent 经常「不听话」？<span class="fa">▼</span></div>
+      <div class="faq-a">通常是提示词不够结构化（试试 CO-STAR 框架），或缺少验证/反思节点。更进一步，需要 Harness 层的约束——把「禁止操作」「完成定义」写清楚，用验证器兜底。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">图工程是不是越复杂越好？<span class="fa">▼</span></div>
+      <div class="faq-a">不是。任务短、路径固定、停止条件明确时画图反而压缩智能体的探索空间。只有当任务长、要并行、要质检、要审批、要恢复时，图的价值才体现出来。先找最简单的方案。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">Harness、Loop、Graph 到底先学哪个？<span class="fa">▼</span></div>
+      <div class="faq-a">建议按这条线：先吃透 Agent Loop（ReAct）——一切的地基；再理解 Loop Engineering 的循环思维；然后掌握 Harness 的「约束与治理」思想；最后用 Graph 组织多智能体系统。层层递进，不需要一上来就啃最复杂的。</div>
+    </div>
+    <div class="faq">
+      <div class="faq-q">如何评价一个智能体的好坏？<span class="fa">▼</span></div>
+      <div class="faq-a">看两点：处理非预期输入时的健壮性，以及最终任务完成率。再配合成本、延迟、可观测性三个指标综合评估——这也是 Harness 中评测体系要解决的。</div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="ft-line"><b>Agent 工程学习站</b> · 从 Harness 到 Graph 的全景指南</div>
+  <div class="ft-line">内容整理自公开报道与官方资料，学习用途 · 数据为约数或来源报道值</div>
+  <div class="ft-line">2026</div>
+</footer>
+
+<button id="backTop" aria-label="返回顶部">↑</button>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- 阅读进度条 ---------- */
+  var prog = document.getElementById('readProgress');
+  function onScrollProg(){
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    prog.style.width = (max > 0 ? (h.scrollTop / max * 100) : 0) + '%';
+  }
+  window.addEventListener('scroll', onScrollProg, {passive:true});
+  onScrollProg();
+
+  /* ---------- 顶部导航：滚动高亮 + 汉堡菜单 ---------- */
+  var navLinks = document.getElementById('navLinks');
+  var burger = document.getElementById('navBurger');
+  burger.addEventListener('click', function(){
+    navLinks.classList.toggle('open');
+  });
+  navLinks.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){
+      navLinks.classList.remove('open');
+    }
+  });
+  var anchors = Array.prototype.slice.call(navLinks.querySelectorAll('a'));
+  var sections = anchors.map(function(a){
+    return document.querySelector(a.getAttribute('href'));
+  });
+  function onScrollNav(){
+    var pos = window.scrollY + 120;
+    var idx = -1;
+    for(var i = 0; i < sections.length; i++){
+      if(sections[i] && sections[i].offsetTop <= pos) idx = i;
+    }
+    anchors.forEach(function(a, i){
+      a.classList.toggle('active', i === idx);
+    });
+  }
+  window.addEventListener('scroll', onScrollNav, {passive:true});
+  onScrollNav();
+
+  /* ---------- 概念卡片展开 ---------- */
+  var concepts = document.querySelectorAll('.concept');
+  concepts.forEach(function(c){
+    c.querySelector('.concept-head').addEventListener('click', function(){
+      c.classList.toggle('open');
+    });
+  });
+
+  /* ---------- 搜索 + 分类筛选 ---------- */
+  var searchInput = document.getElementById('searchInput');
+  var chips = document.querySelectorAll('#filterChips .chip');
+  var emptyTip = document.getElementById('emptyTip');
+  var currentFilter = 'all';
+  var currentQuery = '';
+
+  function applyFilter(){
+    var visible = 0;
+    concepts.forEach(function(c){
+      var tags = (c.getAttribute('data-tags') || '').split(' ');
+      var matchFilter = (currentFilter === 'all') || tags.indexOf(currentFilter) > -1;
+      var text = c.textContent.toLowerCase();
+      var matchQuery = !currentQuery || text.indexOf(currentQuery) > -1;
+      var show = matchFilter && matchQuery;
+      c.style.display = show ? '' : 'none';
+      if(show) visible++;
+    });
+    emptyTip.style.display = visible ? 'none' : 'block';
+  }
+  searchInput.addEventListener('input', function(){
+    currentQuery = this.value.trim().toLowerCase();
+    applyFilter();
+  });
+  chips.forEach(function(ch){
+    ch.addEventListener('click', function(){
+      chips.forEach(function(x){ x.classList.remove('on'); });
+      ch.classList.add('on');
+      currentFilter = ch.getAttribute('data-f');
+      applyFilter();
+    });
+  });
+
+  /* ---------- FAQ 折叠 ---------- */
+  var faqs = document.querySelectorAll('.faq');
+  faqs.forEach(function(f){
+    f.querySelector('.faq-q').addEventListener('click', function(){
+      f.classList.toggle('open');
+    });
+  });
+
+  /* ---------- 返回顶部 ---------- */
+  var backTop = document.getElementById('backTop');
+  window.addEventListener('scroll', function(){
+    backTop.style.display = window.scrollY > 600 ? 'block' : 'none';
+  }, {passive:true});
+  backTop.addEventListener('click', function(){
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+})();
+</script>
+</body>
+</html>
